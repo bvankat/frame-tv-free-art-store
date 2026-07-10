@@ -1,0 +1,4 @@
+samsungtvws>=3.0.0
+pillow
+pandas
+requests

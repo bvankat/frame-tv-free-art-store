@@ -1,0 +1,18 @@
+{
+  "tv_ip": null,
+  "_comment_tv_ip": "Optional fallback - the script auto-discovers the TV on your network each run. Only set this if auto-discovery fails for you (see README).",
+
+  "_comment_selection": "Fill in EITHER artists OR object_ids (or both). object_ids are the most precise way to pin exact works.",
+  "artists": [
+    "Vermeer, Johannes",
+    "Monet, Claude"
+  ],
+  "object_ids": [],
+
+  "rotate_hours": 2,
+  "shuffle": false,
+
+  "matte": "none",
+  "cache_dir": "./cache",
+  "state_file": "./state.json"
+}
