@@ -89,10 +89,14 @@ def main():
     tv_ip = resolve_tv_ip(cfg, state)
 
     if cfg.get("shuffle"):
-        piece = random.choice(catalog)
+        last_shown = state.get("last_shown")
+        choices = [p for p in catalog if p["objectid"] != last_shown] or catalog
+        piece = random.choice(choices)
     else:
         state["index"] = (state["index"] + 1) % len(catalog)
         piece = catalog[state["index"]]
+
+    state["last_shown"] = piece["objectid"]
 
     print(f"Selected: {piece['title']} ({piece.get('artist', '')})")
 
