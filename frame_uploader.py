@@ -21,6 +21,16 @@ def upload_and_show(tv_ip: str, image_bytes: bytes, matte: str = "none") -> str:
     return content_id
 
 
+def select_existing(tv_ip: str, content_id: str):
+    """
+    Shows a piece that's already in the TV's gallery from an earlier run,
+    so we don't re-download and re-upload artwork the Frame already has.
+    """
+    tv = SamsungTVWS(host=tv_ip)
+    tv.art().select_image(content_id, show=True)
+    tv.close()
+
+
 def ensure_art_mode(tv_ip: str):
     tv = SamsungTVWS(host=tv_ip)
     art = tv.art()

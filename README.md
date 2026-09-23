@@ -1,11 +1,15 @@
 # Frame TV Free Art Store 
 Rather than pay Samsung to show art on my TV, I'm going to pull free art from the web and push it to the TV on my own.
 
-Rotates public-domain art from the National Gallery of Art's open-access collection onto your Frame TV's Art Mode, on a schedule.
+Rotates public-domain art from the National Gallery of Art and The Metropolitan Museum of Art's open-access collections onto your Frame TV's Art Mode, on a schedule.
 
  ## How it works
- - Art data & IIIF image links come from NGA's official open-data repo
-   (CC0): https://github.com/NationalGalleryOfArt/opendata
+ - **National Gallery of Art** — art data & IIIF image links come from NGA's
+   official open-data repo (CC0): https://github.com/NationalGalleryOfArt/opendata
+ - **The Met** — pinned object IDs are resolved through the Met Collection API
+   (https://metmuseum.github.io/), no key required. Only Open Access works have
+   a downloadable image; those are CC0. Anything else is skipped with a note.
+ - Both museums feed one shared rotation — a run picks from the combined list.
  - Each image is scaled and center-cropped to fill the Frame's full
    3840×2160 canvas edge to edge (no letterboxing/borders from the
    image itself). If an artwork's aspect ratio is very different from
@@ -51,20 +55,24 @@ Rotates public-domain art from the National Gallery of Art's open-access collect
     | Field | What it does |
     |---|---|
     | `tv_ip` | Optional fallback IP, only used if auto-discovery fails. Leave as `null` unless you need it. |
-    | `artists` | List of artist names, NGA-style: `"Lastname, Firstname"` (e.g. `"Vermeer, Johannes"`). Any artwork by a matching artist is added to the rotation. Send me your list and I'll get the exact NGA spelling. |
-    | `object_ids` | Specific artwork IDs, if you want exact pieces instead of/alongside `artists`. Found at the end of the artwork's NGA URL: `nga.gov/collection/art-object-page-**1236**.html` → `1236`. Numbers or strings both work. |
+    | `sources` | One block per museum (`nga`, `met`), all mixed into a single rotation. Leave a list empty — or drop a whole block — to skip that source. |
+    | `sources.nga.artists` | List of artist names, NGA-style: `"Lastname, Firstname"` (e.g. `"Vermeer, Johannes"`). Any artwork by a matching artist is added to the rotation. Send me your list and I'll get the exact NGA spelling. |
+    | `sources.nga.object_ids` | Specific artwork IDs, if you want exact pieces instead of/alongside `artists`. Found at the end of the artwork's NGA URL: `nga.gov/collection/art-object-page-**1236**.html` → `1236`. Numbers or strings both work. |
+    | `sources.met.object_ids` | Specific Met artwork IDs, at the end of the artwork's Met URL: `metmuseum.org/art/collection/search/**437545**` → `437545`. It must be an **Open Access** work (the artwork page says "Public Domain" and offers a download); anything else has no usable image and is skipped with a message when you build the catalog. There's no artist-name option for the Met — the Met's search is fuzzy enough that it pulls in unrelated works. |
     | `rotate_hours` | How often you intend to run the script (this is just documentation for you — the actual timing is controlled by whatever scheduler you set up in the next section, cron/launchd/Task Scheduler). |
     | `shuffle` | `false` = cycle through your list in order; `true` = pick a random piece each run. |
     | `matte` | The Frame TV's built-in decorative mat/frame border around the art, same as the physical mat options you'd pick in the Frame's on-TV menu. **This is unrelated to the image cropping** — cropping always fills the full screen; `matte` then optionally insets a colored border on top of that. Format is `"type_color"`, e.g. `"modern_apricot"`, `"shadowbox_black"`, `"flexible_neutral"`. Use plain `"none"` for no border at all (art fills the whole screen with nothing added). Types: `none`, `modernthin`, `modern`, `modernwide`, `flexible`, `shadowbox`, `panoramic`, `triptych`, `mix`, `squares`. Colors: `black`, `neutral`, `antique`, `warm`, `polar`, `sand`, `seafoam`, `sage`, `burgandy`, `navy`, `apricot`, `byzantine`, `lavender`, `redorange`, `skyblue`, `turquoise`. |
-    | `cache_dir` | Where NGA's CSVs get downloaded to. Leave as `./cache`. |
+    | `cache_dir` | Where NGA's CSVs and the Met's object records get downloaded to. Leave as `./cache`. |
     | `state_file` | Where rotation progress is saved. Leave as `./state.json`. |
   
- 4. Build the catalog (downloads NGA's CSVs, ~one-time, cached 30 days):
+ 4. Build the catalog (downloads NGA's CSVs and the Met's object records,
+    ~one-time, cached 30 days):
  ```bash
     python main.py --build-catalog
  ```
-    This will print how many artworks matched your list — sanity check
-    before continuing.
+    This will print how many artworks matched per museum — sanity check
+    before continuing. You don't have to remember to re-run it: the catalog
+    rebuilds itself automatically whenever you change `sources`.
   
  5. Run it once manually:
  ```bash
@@ -73,9 +81,9 @@ Rotates public-domain art from the National Gallery of Art's open-access collect
     **The very first time you connect, the TV will show an "Allow access?"
     popup** — accept it with your remote, then re-run the command.
   
- ## Scheduling it (macOS example, every 2 hours)
+ ## Scheduling it (macOS, every hour)
   
- Create `~/Library/LaunchAgents/com.user.ngaframeart.plist`:
+ Already installed as `~/Library/LaunchAgents/com.user.frametvart.plist`:
   
  ```xml
  <?xml version="1.0" encoding="UTF-8"?>
@@ -83,39 +91,61 @@ Rotates public-domain art from the National Gallery of Art's open-access collect
    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
  <plist version="1.0">
  <dict>
-   <key>Label</key><string>com.user.ngaframeart</string>
+   <key>Label</key><string>com.user.frametvart</string>
    <key>ProgramArguments</key>
    <array>
-     <string>/usr/bin/python3</string>
-     <string>/FULL/PATH/TO/nga_frame_art/main.py</string>
+     <string>/Library/Frameworks/Python.framework/Versions/3.11/bin/python3</string>
+     <string>main.py</string>
    </array>
-   <key>WorkingDirectory</key><string>/FULL/PATH/TO/nga_frame_art</string>
-   <key>StartInterval</key><integer>7200</integer>
-   <key>StandardOutPath</key><string>/tmp/ngaframeart.log</string>
-   <key>StandardErrorPath</key><string>/tmp/ngaframeart.err</string>
+   <key>WorkingDirectory</key>
+   <string>/Users/ben/Documents/Apps and Code/Frame TV Art Switcher/frame-tv-free-art-store</string>
+   <key>StartInterval</key><integer>3600</integer>
+   <key>StandardOutPath</key><string>/tmp/frametvart.log</string>
+   <key>StandardErrorPath</key><string>/tmp/frametvart.err</string>
  </dict>
  </plist>
  ```
   
- Load it:
+ Two things that will bite you if you recreate this from scratch:
+ - **Use the full path to the Python that has the dependencies.** Apple's
+   `/usr/bin/python3` is 3.9 with no `samsungtvws`/`pandas`, and launchd
+   doesn't read your shell's `PATH`, so a bare `python3` won't resolve to
+   the one you use in Terminal.
+ - **macOS Local Network permission is per-launching-process.** The first
+   time launchd starts the job, macOS asks to approve running python.org's
+   Python in the background, and SSDP discovery fails with
+   `OSError: [Errno 65] No route to host` until local network access is
+   granted (System Settings → Privacy & Security → Local Network). The
+   script survives this — it falls back to `last_tv_ip` from `state.json`,
+   then `tv_ip` from the config.
+  
+ Load / reload / test it:
  ```bash
- launchctl load ~/Library/LaunchAgents/com.user.ngaframeart.plist
+ launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.user.frametvart.plist
+ launchctl bootout   gui/$UID/com.user.frametvart     # to stop it
+ launchctl kickstart -p gui/$UID/com.user.frametvart  # run once, right now
+ tail -f /tmp/frametvart.log /tmp/frametvart.err
  ```
+  
+ `launchctl list | grep frametvart` shows the last exit status — `0` is a
+ clean run, `78` means the plist paths are wrong.
   
  If your laptop is asleep when a run is due, launchd will run it on next
  wake rather than skipping it entirely.
   
- **Windows:** use Task Scheduler, trigger "every 2 hours", action = run
+ **Windows:** use Task Scheduler, trigger "every hour", action = run
  `python.exe main.py` with "start in" set to the project folder.
   
  **Linux/Raspberry Pi:** cron entry:
  ```
- 0 */2 * * * cd /full/path/to/nga_frame_art && /usr/bin/python3 main.py >> run.log 2>&1
+ 0 * * * * cd /full/path/to/frame-tv-free-art-store && /usr/bin/python3 main.py >> run.log 2>&1
  ```
   
  ## Files
  - `nga_catalog.py` — downloads/caches NGA's open-data CSVs, resolves your
    artist/object-id list to image URLs
+ - `met_catalog.py` — resolves your Met object IDs through the Met Collection
+   API and caches each record under `cache/met/`
  - `image_utils.py` — downloads art at the right resolution and
    center-crops it to fill the Frame's 3840×2160 canvas edge to edge
  - `discover_tv.py` — finds the Frame TV on the network via SSDP (no fixed
@@ -123,6 +153,7 @@ Rotates public-domain art from the National Gallery of Art's open-access collect
  - `frame_uploader.py` — talks to the TV over the local websocket API
  - `main.py` — the scheduled entry point
  - `config.json` — your settings (create from `config.example.json`)
- - `catalog.json` — cached resolved artwork list (delete to force rebuild)
- - `state.json` — remembers rotation position, already-uploaded content IDs,
-   and the last IP the TV was found at
+ - `catalog.json` — cached resolved artwork list; rebuilds itself when
+   `sources` changes (delete it to force a rebuild any other time)
+ - `state.json` — remembers rotation position, already-uploaded content IDs
+   (keyed `museum:objectid`), and the last IP the TV was found at

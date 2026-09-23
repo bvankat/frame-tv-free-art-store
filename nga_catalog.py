@@ -41,13 +41,16 @@ def _download_if_needed(cache_dir: str):
 
 def build_catalog(cache_dir: str, artists=None, object_ids=None) -> list[dict]:
     """
-    Returns a list of dicts: {objectid, title, artist, iiif_url}
+    Returns a list of dicts: {source, objectid, title, artist, iiif_url}
     matching the requested artists (substring match on display name,
     case-insensitive) and/or explicit object_ids.
     """
-    _download_if_needed(cache_dir)
     artists = artists or []
     object_ids = set(str(i) for i in (object_ids or []))
+    if not artists and not object_ids:
+        return []
+
+    _download_if_needed(cache_dir)
 
     objects = pd.read_csv(
         os.path.join(cache_dir, "objects.csv"),
@@ -107,6 +110,7 @@ def build_catalog(cache_dir: str, artists=None, object_ids=None) -> list[dict]:
             continue
         catalog.append(
             {
+                "source": "nga",
                 "objectid": row["objectid"],
                 "title": row["title"],
                 "artist": row.get("attribution", ""),

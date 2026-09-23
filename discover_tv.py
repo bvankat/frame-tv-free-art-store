@@ -29,11 +29,22 @@ def discover_frame_tv(timeout: float = 4.0) -> str | None:
     sock.settimeout(timeout)
 
     try:
-        sock.sendto(SSDP_MSEARCH, (SSDP_ADDR, SSDP_PORT))
+        try:
+            sock.sendto(SSDP_MSEARCH, (SSDP_ADDR, SSDP_PORT))
+        except OSError as e:
+            # Errno 65 here usually means macOS hasn't granted this process
+            # Local Network access (common the first time it runs under
+            # launchd). Not fatal - the caller falls back to a known IP.
+            print(f"SSDP discovery unavailable ({e}).")
+            return None
+
         while True:
             try:
                 data, addr = sock.recvfrom(4096)
             except socket.timeout:
+                return None
+            except OSError as e:
+                print(f"SSDP discovery unavailable ({e}).")
                 return None
 
             text = data.decode(errors="ignore")

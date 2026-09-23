@@ -2,12 +2,19 @@
   "tv_ip": null,
   "_comment_tv_ip": "Optional fallback - the script auto-discovers the TV on your network each run. Only set this if auto-discovery fails for you (see README).",
 
-  "_comment_selection": "Fill in EITHER artists OR object_ids (or both). object_ids are the most precise way to pin exact works.",
-  "artists": [
-    "Vermeer, Johannes",
-    "Monet, Claude"
-  ],
-  "object_ids": [],
+  "_comment_sources": "One block per museum, mixed freely into a single rotation. Leave a list empty (or drop the block) to skip that source. object_ids are the most precise way to pin exact works - they come off the end of each museum's artwork URL.",
+  "sources": {
+    "nga": {
+      "artists": [
+        "Vermeer, Johannes",
+        "Monet, Claude"
+      ],
+      "object_ids": []
+    },
+    "met": {
+      "object_ids": [437545, 436535]
+    }
+  },
 
   "rotate_hours": 2,
   "shuffle": false,
