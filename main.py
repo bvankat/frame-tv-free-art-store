@@ -21,7 +21,7 @@ import sys
 import met_catalog
 import nga_catalog
 from image_utils import download_and_cover_crop, download_direct_and_cover_crop
-from frame_uploader import upload_and_show, select_existing, ensure_art_mode
+from frame_uploader import upload_and_show, select_existing, get_art_mode
 from discover_tv import discover_frame_tv
 
 CONFIG_PATH = "config.json"
@@ -152,6 +152,17 @@ def main():
     state = load_state(cfg["state_file"])
     tv_ip = resolve_tv_ip(cfg, state)
 
+    # Only swap art when the Frame is already showing art. If the TV is being
+    # watched (or is off, or unreachable), leave the screen alone and try
+    # again next run - returning here also leaves the rotation position
+    # untouched, so we don't burn through pieces nobody saw.
+    art_mode = get_art_mode(tv_ip)
+    if art_mode != "on":
+        reason = "in use" if art_mode == "off" else "unreachable"
+        print(f"TV is {reason} (art mode: {art_mode}) - leaving the screen alone.")
+        save_state(cfg["state_file"], state)  # keeps last_tv_ip from discovery
+        return
+
     if cfg.get("shuffle"):
         last_shown = state.get("last_shown")
         choices = [p for p in catalog if piece_key(p) != last_shown] or catalog
@@ -179,7 +190,6 @@ def main():
         select_existing(tv_ip, content_id)
         print(f"Re-selected cached content_id: {content_id}")
 
-    ensure_art_mode(tv_ip)
     save_state(cfg["state_file"], state)
 
 

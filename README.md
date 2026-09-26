@@ -10,6 +10,11 @@ Rotates public-domain art from the National Gallery of Art and The Metropolitan 
    (https://metmuseum.github.io/), no key required. Only Open Access works have
    a downloadable image; those are CC0. Anything else is skipped with a note.
  - Both museums feed one shared rotation — a run picks from the combined list.
+ - **Art only changes when the Frame is already in Art Mode.** If you're
+   watching something (or the TV is off, or off-network), the run prints a
+   line and exits without touching the screen — it doesn't even advance the
+   rotation, so you don't burn through pieces nobody saw. It tries again on
+   the next scheduled run.
  - Each image is scaled and center-cropped to fill the Frame's full
    3840×2160 canvas edge to edge (no letterboxing/borders from the
    image itself). If an artwork's aspect ratio is very different from
@@ -141,6 +146,27 @@ Rotates public-domain art from the National Gallery of Art and The Metropolitan 
  0 * * * * cd /full/path/to/frame-tv-free-art-store && /usr/bin/python3 main.py >> run.log 2>&1
  ```
   
+ ## How "is the TV in use?" is detected
+  
+ The Frame reports `PowerState: "on"` whether you're watching something *or*
+ it's sitting in Art Mode, so power state alone can't tell them apart. Art
+ mode status is the signal that can. Measured on a QN55LS03BAFXZA:
+  
+ | TV state | `PowerState` (REST) | `art.get_artmode()` |
+ |---|---|---|
+ | On, watching something | `"on"` | `"off"` |
+ | Art Mode | `"on"` | `"on"` |
+ | Off / unreachable | — | connection fails |
+  
+ So `frame_uploader.get_art_mode()` gates every run: anything other than
+ `"on"` means leave the screen alone. Two related gotchas if you extend this:
+  
+ - `get_artmode()` returns the **string** `"on"`/`"off"`, so `if not
+   art.get_artmode()` is always false — compare against `"on"` explicitly.
+ - The REST API on port 8001 (the library's default) times out on this model;
+   the working endpoint is HTTPS on 8002. Only matters if you call something
+   REST-backed like `art.supported()`.
+  
  ## Files
  - `nga_catalog.py` — downloads/caches NGA's open-data CSVs, resolves your
    artist/object-id list to image URLs
@@ -150,7 +176,8 @@ Rotates public-domain art from the National Gallery of Art and The Metropolitan 
    center-crops it to fill the Frame's 3840×2160 canvas edge to edge
  - `discover_tv.py` — finds the Frame TV on the network via SSDP (no fixed
    IP required)
- - `frame_uploader.py` — talks to the TV over the local websocket API
+ - `frame_uploader.py` — talks to the TV over the local websocket API, and
+   checks art mode status so runs never interrupt what you're watching
  - `main.py` — the scheduled entry point
  - `config.json` — your settings (create from `config.example.json`)
  - `catalog.json` — cached resolved artwork list; rebuilds itself when
